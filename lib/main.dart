@@ -14,20 +14,42 @@ class Auth extends StatefulWidget {
 class _AuthState extends State<Auth> {
   @override
   
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  Future<FirebaseUser> _handleSignIn() async {
-    final GoogleSignInAccount googleUser = await _googleSignIn.signIn();
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+  final GoogleSignIn googleSignIn = GoogleSignIn();
+
+  String loginMethod;
+
+  Future<String> signInWithGoogle() async {
+    final GoogleSignInAccount googleSignInAccount = await googleSignIn.signIn();
+    final GoogleSignInAuthentication googleSignInAuthentication =
+        await googleSignInAccount.authentication;
 
     final AuthCredential credential = GoogleAuthProvider.getCredential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
+      accessToken: googleSignInAuthentication.accessToken,
+      idToken: googleSignInAuthentication.idToken,
     );
 
-    final FirebaseUser user = (await _auth.signInWithCredential(credential)).user;
-    print("signed in " + user.displayName);
-    return user;
+    final AuthResult authResult = await _auth.signInWithCredential(credential);
+    final FirebaseUser user = authResult.user;
+
+    assert(!user.isAnonymous);
+    assert(await user.getIdToken() != null);
+
+    final FirebaseUser currentUser = await _auth.currentUser();
+    assert(user.uid == currentUser.uid);
+
+    IdTokenResult idTokenResult = await authResult.user.getIdToken();
+    print(idTokenResult.token);
+
+    // print(googleSignInAuthentication.idToken);
+    loginMethod = "Google";
+    return 'signInWithGoogle succeeded: $user';
+  }
+
+  void signOutGoogle() async{
+    await googleSignIn.signOut();
+
+    print("User Sign Out");
   }
   Widget build(BuildContext context) {
     return Scaffold(
@@ -55,9 +77,7 @@ class _AuthState extends State<Auth> {
             child: Center(
               child: FlatButton(
                 onPressed: (){
-                  _handleSignIn()
-                  .then((FirebaseUser user) => print(user))
-                  .catchError((e) => print(e));
+                  signInWithGoogle().then((value) => print(value));
                   print("aktif");
                 }, 
                 child: Text("Google"),
@@ -75,6 +95,21 @@ class _AuthState extends State<Auth> {
                 child: Text("Facbook"),
                 splashColor: Colors.blue,
                 color: Colors.blue[900],
+                textColor: Colors.white,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Center(
+              child: FlatButton(
+                onPressed: (){
+                  signOutGoogle();
+                  print("Logout");
+                }, 
+                child: Text("Sign out"),
+                splashColor: Colors.black,
+                color: Colors.black87,
                 textColor: Colors.white,
               ),
             ),
